@@ -1,0 +1,19 @@
+expansion:
+  uspto:
+    - /app/bigdata/uspto_model.onnx
+    - /app/bigdata/uspto_templates.csv.gz
+  ringbreaker:
+    - /app/bigdata/uspto_ringbreaker_model.onnx
+    - /app/bigdata/uspto_ringbreaker_templates.csv.gz
+
+filter:
+  uspto: /app/bigdata/uspto_filter_model.onnx
+
+stock:
+  zinc: /app/bigdata/zinc_stock.hdf5
+
+search:
+  algorithm: mcts
+  time_limit: 120
+  iteration_limit: 100
+  max_transforms: 6
