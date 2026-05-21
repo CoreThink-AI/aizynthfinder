@@ -3,27 +3,48 @@
 Run locally:
     uvicorn service:app --port 8000
 
-Example:
+Example (default ONNX policies):
     curl -X POST http://localhost:8000/retrosynthesis \\
         -H "Content-Type: application/json" \\
         -d '{"smiles": "CC(=O)Oc1ccccc1C(=O)O"}'
+
+Example (single named ONNX policy):
+    curl -X POST http://localhost:8000/retrosynthesis \\
+        -H "Content-Type: application/json" \\
+        -d '{"smiles": "CC(=O)Oc1ccccc1C(=O)O", "expansion_strategy": "uspto"}'
+
+Example (Chemformer REST API):
+    curl -X POST http://localhost:8000/retrosynthesis \\
+        -H "Content-Type: application/json" \\
+        -d '{"smiles": "CC(=O)Oc1ccccc1C(=O)O", "expansion_strategy": "https://chemformer-api.example.com/predict"}'
 """
 from __future__ import annotations
 
 import os
-from typing import Any, Dict, List, Optional
+import sys
+from contextlib import contextmanager
+from typing import Any, Dict, Generator, List, Optional
 
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from rdkit import Chem
 
 from aizynthfinder.aizynthfinder import AiZynthFinder
 
+# Chemformer strategy lives in plugins/; import it if available.
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "plugins"))
+try:
+    from expansion_strategies import ChemformerBasedExpansionStrategy
+    _HAS_CHEMFORMER = True
+except ImportError:
+    _HAS_CHEMFORMER = False
 
 CONFIG_PATH = os.environ.get(
     "AIZYNTH_CONFIG",
     os.path.join(os.path.dirname(__file__), "config_production.yml"),
 )
+
+_CHEMFORMER_KEY = "__chemformer_request__"
 
 
 # ── Pydantic schemas ──────────────────────────────────────────────────────────
@@ -52,6 +73,32 @@ class RetrosynthesisRequest(BaseModel):
         le=500,
         description="Maximum number of routes to return per category.",
     )
+    expansion_strategy: Optional[str] = Field(
+        default=None,
+        description=(
+            "Expansion policy to use for the search. Three forms are accepted:\n"
+            "- Omit or null: use all loaded ONNX policies (default).\n"
+            "- A policy name (e.g. 'uspto', 'ringbreaker'): select one pre-loaded ONNX policy.\n"
+            "- A URL (http:// or https://): use a Chemformer-compatible REST API at that address."
+        ),
+        examples=["uspto", "ringbreaker", "https://chemformer-api.example.com/predict"],
+    )
+
+    @field_validator("expansion_strategy")
+    @classmethod
+    def validate_expansion_strategy(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        if v.startswith(("http://", "https://")):
+            if not _HAS_CHEMFORMER:
+                raise ValueError(
+                    "URL-based expansion requires the Chemformer plugin. "
+                    "Ensure plugins/expansion_strategies.py is present."
+                )
+            return v
+        # Named policy — actual key validation happens in the endpoint
+        # (requires access to the loaded finder), so just strip whitespace here.
+        return v.strip()
 
 
 class SearchStats(BaseModel):
@@ -67,6 +114,9 @@ class SearchStats(BaseModel):
 
 class RetrosynthesisResponse(BaseModel):
     target_smiles: str
+    expansion_strategy_used: List[str] = Field(
+        description="The expansion policy key(s) actually used for this search."
+    )
     stats: SearchStats
     stock_configured: bool
     purchasable_routes: List[Dict[str, Any]] = Field(
@@ -86,13 +136,14 @@ class RetrosynthesisResponse(BaseModel):
 # ── FastAPI app + AiZynthFinder bootstrap ────────────────────────────────────
 
 app = FastAPI(
-    title="AiZynthFinder ONNX Retrosynthesis",
+    title="AiZynthFinder Retrosynthesis",
     description=(
-        "Retrosynthetic planning service using AiZynthFinder MCTS with ONNX-based "
-        "USPTO and Ringbreaker expansion policies and a ZINC purchasability stock. "
-        "Routes are separated by whether their leaf precursors are purchasable."
+        "Retrosynthetic planning using AiZynthFinder MCTS. Supports ONNX-based "
+        "USPTO/Ringbreaker template policies (selected by name) and Chemformer-compatible "
+        "REST API policies (selected by URL). Routes are split by purchasability of "
+        "leaf precursors against the ZINC stock."
     ),
-    version="1.0",
+    version="1.1",
 )
 
 _finder: Optional[AiZynthFinder] = None
@@ -120,7 +171,60 @@ def get_finder() -> AiZynthFinder:
     return _finder
 
 
-# ── helpers ───────────────────────────────────────────────────────────────────
+# ── expansion strategy context manager ───────────────────────────────────────
+
+@contextmanager
+def _expansion_strategy_ctx(
+    finder: AiZynthFinder,
+    expansion_strategy: Optional[str],
+) -> Generator[List[str], None, None]:
+    """Temporarily apply the requested expansion strategy.
+
+    Yields the list of policy keys that will be active during the search.
+    Restores the original selection (and removes any temporary strategy) on exit.
+
+    Raises HTTPException(422) for unknown named policies.
+    """
+    original_selection = list(finder.expansion_policy._selection)
+    injected_key: Optional[str] = None
+
+    try:
+        if expansion_strategy is None:
+            # Default: all loaded ONNX policies already selected at startup.
+            active = list(finder.expansion_policy.selection)
+        elif expansion_strategy.startswith(("http://", "https://")):
+            # URL → create a temporary Chemformer strategy for this request.
+            injected_key = _CHEMFORMER_KEY
+            strategy = ChemformerBasedExpansionStrategy(
+                injected_key, finder.config, url=expansion_strategy
+            )
+            finder.expansion_policy.load(strategy)
+            finder.expansion_policy.select(injected_key)
+            active = [expansion_strategy]  # report the URL, not the internal key
+        else:
+            # Named policy → select from pre-loaded ONNX policies.
+            available = finder.expansion_policy.items
+            if expansion_strategy not in available:
+                raise HTTPException(
+                    status_code=422,
+                    detail=(
+                        f"Unknown expansion_strategy {expansion_strategy!r}. "
+                        f"Loaded policies: {available}. "
+                        "Pass a URL to use a Chemformer REST API instead."
+                    ),
+                )
+            finder.expansion_policy.select(expansion_strategy)
+            active = [expansion_strategy]
+
+        yield active
+
+    finally:
+        finder.expansion_policy._selection = original_selection
+        if injected_key and injected_key in finder.expansion_policy._items:
+            del finder.expansion_policy[injected_key]
+
+
+# ── route helpers ─────────────────────────────────────────────────────────────
 
 def _route_is_purchasable(route_dict: Dict[str, Any]) -> bool:
     """Return True if every leaf molecule in the route tree is in_stock."""
@@ -178,6 +282,10 @@ def _route_is_meaningful(route_dict: Dict[str, Any]) -> bool:
 def retrosynthesize(request: RetrosynthesisRequest) -> RetrosynthesisResponse:
     """Run AiZynthFinder MCTS for the given target SMILES and return routes,
     split by whether leaf precursors are purchasable (in stock).
+
+    The expansion policy used for the search is controlled by `expansion_strategy`:
+    omit for all loaded ONNX policies, pass a policy name for a specific ONNX model,
+    or pass a URL to route expansion calls to a Chemformer REST API.
     """
     finder = get_finder()
 
@@ -187,15 +295,18 @@ def retrosynthesize(request: RetrosynthesisRequest) -> RetrosynthesisResponse:
     finder.config.search.iteration_limit = request.iteration_limit
 
     try:
-        finder.target_smiles = request.smiles
-        finder.prepare_tree()
-        finder.tree_search()
-        finder.build_routes()
-        finder.routes.compute_scores(*finder.scorers.objects())
-    except Exception as exc:
-        raise HTTPException(
-            status_code=500, detail=f"Search failed: {type(exc).__name__}: {exc}"
-        )
+        with _expansion_strategy_ctx(finder, request.expansion_strategy) as active_policies:
+            try:
+                finder.target_smiles = request.smiles
+                finder.prepare_tree()
+                finder.tree_search()
+                finder.build_routes()
+                finder.routes.compute_scores(*finder.scorers.objects())
+            except Exception as exc:
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Search failed: {type(exc).__name__}: {exc}",
+                )
     finally:
         finder.config.search.time_limit = original_time
         finder.config.search.iteration_limit = original_iter
@@ -231,6 +342,7 @@ def retrosynthesize(request: RetrosynthesisRequest) -> RetrosynthesisResponse:
 
     return RetrosynthesisResponse(
         target_smiles=request.smiles,
+        expansion_strategy_used=active_policies,
         stats=stats,
         stock_configured=stock_configured,
         purchasable_routes=purchasable,
@@ -258,6 +370,7 @@ def get_config() -> Dict[str, Any]:
         "search_time_limit": finder.config.search.time_limit,
         "search_iteration_limit": finder.config.search.iteration_limit,
         "max_transforms": finder.config.search.max_transforms,
+        "chemformer_available": _HAS_CHEMFORMER,
     }
 
 

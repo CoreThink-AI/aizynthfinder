@@ -8,40 +8,31 @@ AiZynthFinder is a retrosynthetic planning tool. Given a target molecule (as SMI
 
 ## Development setup
 
+Use `uv` and `pyproject.toml` for installing all dependencies in a venv:
+
 ```bash
-conda env create -f env-dev.yml
-conda activate aizynth-dev
-poetry install --all-extras
+git clone git@github.com:CoreThink-AI/aizynthfinder
+uv venv -p 3.10
+source .venv/bin/activate
+uv pip install -e .[all]
+uv pip install fastapi "uvicorn[standard]"
 ```
 
 ## Commands
 
+Use pytest from the activated venv to run unittests
+
 ```bash
-# Run tests
 pytest -v
+```
 
-# Run a single test file or test
-pytest tests/test_finder.py -v
-pytest tests/test_finder.py::test_name -v
+Use the activated venv python to run all scripts:
 
-# Run integration tests (skipped by default)
-pytest --run_integration
-
-# Full CI test suite (black formatting + mccabe complexity + coverage)
-invoke full-tests
-
-# Linting
-invoke run-linting   # mypy + pylint
-invoke run-mypy      # mypy only
-
-# Build docs
-invoke build-docs
-
-# CLI entry points (after install)
-aizynthcli --config config.yml --smiles smiles.txt
-aizynthapp --config config.yml          # Jupyter notebook GUI
-download_public_data <folder>           # download pretrained models + stock
-smiles2stock <infile> <outfile>         # convert SMILES file to HDF5 stock
+```bash
+python -m aizynthcli --config config.yml --smiles smiles.txt
+python -m aizynthapp --config config.yml          # Jupyter notebook GUI
+python -m download_public_data <folder>           # download pretrained models + stock
+python -m smiles2stock <infile> <outfile>         # convert SMILES file to HDF5 stock
 ```
 
 ## Architecture

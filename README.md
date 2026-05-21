@@ -1,16 +1,7 @@
 # AiZynthFinder
 
-[![License](https://img.shields.io/github/license/MolecularAI/aizynthfinder)](https://github.com/MolecularAI/aizynthfinder/blob/master/LICENSE)
-[![Tests](https://github.com/MolecularAI/aizynthfinder/workflows/tests/badge.svg)](https://github.com/MolecularAI/aizynthfinder/actions?workflow=tests)
-[![codecov](https://codecov.io/gh/MolecularAI/aizynthfinder/branch/master/graph/badge.svg)](https://codecov.io/gh/MolecularAI/aizynthfinder)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/python/black)
-[![version](https://img.shields.io/github/v/release/MolecularAI/aizynthfinder)](https://github.com/MolecularAI/aizynthfinder/releases)
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MolecularAI/aizynthfinder/blob/master/contrib/notebook.ipynb)
-
 AiZynthFinder is a tool for retrosynthetic planning. The default algorithm is based on a Monte Carlo tree search that recursively breaks down a molecule to purchasable precursors. The tree search is guided by a policy that suggests possible precursors by utilizing a neural network trained on a library of known reaction templates. This setup is completely customizable as the tool
 supports multiple search algorithms and expansion policies.
-
-An introduction video can be found here: [https://youtu.be/r9Dsxm-mcgA](https://youtu.be/r9Dsxm-mcgA)
 
 ## Prerequisites
 
@@ -18,39 +9,17 @@ Before you begin, ensure you have met the following requirements:
 
 * Linux, Windows or macOS platforms are supported - as long as the dependencies are supported on these platforms.
 
-* You have installed [anaconda](https://www.anaconda.com/) or [miniconda](https://docs.conda.io/en/latest/miniconda.html) with python 3.10 - 3.12
-
-The tool has been developed on a Linux platform, but the software has been tested on Windows 10 and macOS Catalina.
-
 ## Installation
 
-### For end-users
+### For end-users & developers
 
-First time, execute the following command in a console or an Anaconda prompt
-
-    conda create "python>=3.10,<3.13" -n aizynth-env
-
-To install, activate the environment and install the package using pypi
-
-    conda activate aizynth-env
-    python -m pip install aizynthfinder[all]
-
-for a smaller package, without all the functionality, you can also type
-
-    python -m pip install aizynthfinder
-
-### For developers
-
-First clone the repository using Git.
-
-Then execute the following commands in the root of the repository
-
-    conda env create -f env-dev.yml
-    conda activate aizynth-dev
-    poetry install --all-extras
-
-the `aizynthfinder` package is now installed in editable mode.
-
+```bash
+$ git clone git@github.com:CoreThink-AI/aizynthfinder
+$ uv venv -p 3.10
+$ source .venv/bin/activate
+$ uv pip install -e .[all]
+$ uv pip install fastapi "uvicorn[standard]"
+```
 
 ## Usage
 
