@@ -16,22 +16,6 @@ exclude-newer = "31 days"
 prerelease = "allow"
 
 dependencies = [
-onnxruntime = "^1.23.0"
-tensorflow = {version = "^2.20.0", optional=true}  
-grpcio = {version = "^1.24.0", optional=true}
-tensorflow-serving-api = {version = "^2.1.0", optional=true}
-pymongo = {version = "^3.10.1", optional=true}
-route-distances = {version = "^1.2.4", optional=true}
-scipy = {version = "^1.0", optional=true}
-matplotlib = "^3.0.0"
-timeout-decorator = {version = "^0.5.0", optional=true}
-molbloom = {version = "^2.1.0", optional=true}
-paretoset = "^1.2.3"
-seaborn = "^0.13.2"
-dask = ">=2024.4.1" 
-numpy = "<2.0.0"
-reaction-utils = "^1.9.3"
-
     "setuptools==70.2.0",
     # "dotenv==0.9.9",
     "python-dotenv==1.2.2",
@@ -125,7 +109,7 @@ line-length = 120
 source-dir = "src"
 
 [build-system]
-requires = ["uv_build>=0.11.0", "setuptools", "pkg_resources"]
+requires = ["uv_build>=0.11.0", "setuptools"]
 build-backend = "uv_build"
 
 # [tool.uv.extra-build-dependencies]
