@@ -1,14 +1,90 @@
-[tool.poetry]
+[project]
 name = "aizynthfinder"
-version = "4.4.1"
+requires-python = ">=3.10.0,<3.11.0"
+version = "4.4.2"
 description = "Retrosynthetic route finding using neural network guided Monte-Carlo tree search"
-authors = ["Molecular AI group <samuel.genheden@astrazeneca.com>"]
+readme = "README.md"
+authors = [
+    {name = "Molecular AI group", email = "samuel.genheden@astrazeneca.com"},
+    ]
 license = "MIT"
 include = ["aizynthfinder/data/*.yml", "aizynthfinder/data/templates/*"]
-readme = "README.md"
 homepage = "https://github.com/MolecularAI/aizynthfinder/"
 repository = "https://github.com/MolecularAI/aizynthfinder/"
 documentation = "https://molecularai.github.io/aizynthfinder/"
+exclude-newer = "31 days"
+prerelease = "allow"
+
+dependencies = [
+    "setuptools==70.2.0",
+    # "dotenv==0.9.9",
+    "python-dotenv==1.2.2",
+    "pytorch-lightning<1.6.0",  # ==1.4.9,"
+    "pyyaml<6.0",
+    #  help: `pyyaml` (v5.4.1) was included because `aizynthfinder` (v4.4.2) depends on `pytorch-lightning` (v1.4.9) which depends on `pyyaml`
+    "torch==1.13.1+cpu",
+    "torchmetrics==0.7.3",
+    "hydra-core>=1.3.2",  #  ">=1.3.2,<1.5.0",
+    "fastapi==0.98.0",  # ,<0.99.0",
+    "pydantic==1.10.26",  # ,<=2.0",
+    "protobuf>=2.0,<3.21",
+
+    "pandas",
+    "ipython==8.39.0",
+    "numpy==1.26.4",
+
+    "rdkit",
+    "reaction-utils",
+    
+    "cgrtools<4.0",
+    "ipywidgets>=7.5.1",
+    "jinja2>=3.0",
+    "jupyter",
+    "jupytext",
+    "notebook",
+    "networkx",
+    "deprecated~=1.2.10",
+    "pillow~=12.0",
+    "requests~=2.23",
+    "rdchiral~=1.0",
+    "tables~=3.6.1",
+    "tqdm",
+    "onnxruntime~=1.23",
+    "seaborn",
+    "dask",
+]
+
+[project.optional-dependencies]
+all = [
+    "aizynthfinder[dev,service,tf]",
+    ]
+dev = [
+    "invoke",
+    "pytest",
+    "pytest-black",
+    "pytest-cov",
+    "pytest-datadir",
+    "pytest-mock",
+    "pytest-mccabe",
+    "Sphinx",
+    "mypy",
+    "pylint",
+]
+service = [
+    "fastapi==0.98.0",
+    "pydantic==1.10.26",
+    "uvicorn[standard]>=0.22.0",
+    "google-cloud-storage>=2.0,<3.0",
+    "pymongo", "route-distances", "scipy", "timeout-decorator", "molbloom"
+    ]
+tf = ["tensorflow", "grpcio", "tensorflow-serving-api"]
+
+[project.scripts]
+aizynthapp = "aizynthfinder.interfaces.aizynthapp:main"
+aizynthcli = "aizynthfinder.interfaces.aizynthcli:main"
+cat_aizynth_output = "aizynthfinder.tools.cat_output:main"
+download_public_data = "aizynthfinder.tools.download_public_data:main"
+smiles2stock = "aizynthfinder.tools.make_stock:main"
 
 [tool.pytest.ini_options]
 mccabe-complexity = 9
@@ -25,65 +101,35 @@ exclude_also = [
     "if TYPE_CHECKING:"
 ]
 
-[tool.poetry.dependencies]
-python = ">=3.10,<3.13"
-ipywidgets = "^7.5.1"
-jinja2 = "^3.0.0"
-jupyter = "^1.0.0"
-jupytext = "^1.3.3"
-notebook = "^6.5.3"
-networkx = "^2.4"
-deprecated = "^1.2.10"
-pandas = ">=1.0.0,<3.0.0"
-pillow = "^12.0.0"
-requests = "^2.23.0"
-rdchiral = "^1.0.0"
-rdkit = "^2023.9.1"
-tables = "^3.6.1"
-tqdm = "^4.42.1"
-onnxruntime = "^1.23.0"
-tensorflow = {version = "^2.20.0", optional=true}  
-grpcio = {version = "^1.24.0", optional=true}
-tensorflow-serving-api = {version = "^2.1.0", optional=true}
-pymongo = {version = "^3.10.1", optional=true}
-route-distances = {version = "^1.2.4", optional=true}
-scipy = {version = "^1.0", optional=true}
-matplotlib = "^3.0.0"
-timeout-decorator = {version = "^0.5.0", optional=true}
-molbloom = {version = "^2.1.0", optional=true}
-paretoset = "^1.2.3"
-seaborn = "^0.13.2"
-dask = ">=2024.4.1" 
-numpy = "<2.0.0"
-reaction-utils = "^1.9.3"
-
-[tool.poetry.dev-dependencies]
-black = "^22.0.0"
-invoke = "^2.2.0"
-pytest = "^6.2.2"
-pytest-black = "^0.3.12"
-pytest-cov = "^2.11.0"
-pytest-datadir = "^1.3.1"
-pytest-mock = "^3.5.0"
-pytest-mccabe = "^2.0.0"
-Sphinx = "^7.3.7"
-mypy = "^1.0.0"
-pylint = "^2.16.0"
-
-[tool.poetry.extras]
-all = ["pymongo", "route-distances", "scipy", "timeout-decorator", "molbloom"]
-tf = ["tensorflow", "grpcio", "tensorflow-serving-api"]
-
-[tool.poetry.scripts]
-aizynthapp = "aizynthfinder.interfaces.aizynthapp:main"
-aizynthcli = "aizynthfinder.interfaces.aizynthcli:main"
-cat_aizynth_output = "aizynthfinder.tools.cat_output:main"
-download_public_data = "aizynthfinder.tools.download_public_data:main"
-smiles2stock = "aizynthfinder.tools.make_stock:main"
-
 [tool.coverage.run]
 relative_files = true
 
+[tool.black]
+line-length = 120
+
+[tool.uv_build]
+source-dir = "src"
+
 [build-system]
-requires = ["poetry_core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["uv_build>=0.11.0"]
+build-backend = "uv_build"
+
+[tool.uv.extra-build-dependencies]
+swifter = ["numpy", "pandas", "dask", "pyarrow", "tqdm", "psutil"]
+  #                                                                                                                     × Failed to build `cgrtools==4.1.35`
+  # ├─▶ The build backend returned an error 
+  # ╰─▶ Call to `setuptools.build_meta:__legacy__.build_wheel` failed (exit status: 1)
+    # reaction-utils = ["numpy", "pandas", "dask", "pyarrow", "tqdm", "psutil", "cgrtools"]
+    # Cython.Compiler.Errors.CompileError: CGRtools/containers/_unpack.pyx
+    # hint: This usually indicates a problem with the package or the build environment.
+    # help: `cgrtools` (v4.1.35) was included because `aizynthfinder` (v4.4.2) depends on `reaction-utils` (v1.6.0) which depends on `cgrtools`
+
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true  # only used for packages listed in [tool.uv.sources]
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu" }]
+
